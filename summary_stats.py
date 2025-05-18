@@ -1,3 +1,5 @@
+#SUMMARY DE LOS STATS
+
 import pandas as pd
 
 # Leer CSV
@@ -22,3 +24,4 @@ pct_false = (count_false / total) * 100
 print(f"✅ True  ➜ {count_true} filas ({pct_true:.2f}%)")
 print(f"✅ False ➜ {count_false} filas ({pct_false:.2f}%)")
 print(f"🧾 Total ➜ {total} filas analizadas")
+
