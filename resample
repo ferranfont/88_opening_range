@@ -1,0 +1,47 @@
+import pandas as pd
+import os
+
+# ====================================================
+# 📥 DESCARGA DE DATOS 
+# ====================================================
+directorio = '../DATA'
+nombre_fichero = 'export_es_2015_formatted.csv'
+ruta_completa = os.path.join(directorio, nombre_fichero)
+print("\n======================== 🔍 df  ==========================")
+df = pd.read_csv(ruta_completa)
+print('Fichero:', ruta_completa, 'importado')
+print(f"Características del Fichero Base: {df.shape}")
+# ====================================================
+
+# Asegurar formato datetime y establecer como índice
+df['Date'] = pd.to_datetime(df['Date'], utc=True)
+df.set_index('Date', inplace=True)
+
+# 📊 Agregación a 5 minutos con alineación exacta UTC
+agg_dict = {
+    'Open': 'first',
+    'High': 'max',
+    'Low': 'min',
+    'Close': 'last'
+}
+
+# Si hay columna Volume, incluirla
+if 'Volume' in df.columns:
+    agg_dict['Volume'] = 'sum'
+elif 'Volumen' in df.columns:
+    agg_dict['Volumen'] = 'sum'  # si tienes el nombre en español
+
+# Resample alineado a las horas UTC exactas (ej: 15:30–15:35)
+df_5min = df.resample('5min', label='right', closed='right').agg(agg_dict)
+
+# Eliminar filas incompletas
+df_5min.dropna(inplace=True)
+
+print(f"✅ DataFrame re-muestreado a 5 minutos: {df_5min.shape}")
+print(df_5min.head())
+
+# Guardar el resultado como CSV
+output_path = os.path.join('../DATA', 'ES_2015_2024_5min_timeframe.csv')
+df_5min.to_csv(output_path)
+
+print(f"✅ Archivo guardado correctamente en: {output_path}")
