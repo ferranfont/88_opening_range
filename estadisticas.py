@@ -13,7 +13,8 @@ def estadisticas(
     first_breakdown_price,
     first_breakout_bool,
     first_breakdown_bool,
-    fecha
+    fecha,
+    fecha_trading_sp
 ):
     # Determinar tipo de entrada
     if first_breakout_bool and not first_breakdown_bool:
@@ -84,6 +85,7 @@ def estadisticas(
     # === Resultado final ===
     result = {
         'Fecha': fecha,
+        'SP500_close': fecha_trading_sp,
         'entry_type': entry_type,
         'Rotura High Prematura': first_breakout_time,
         'Rotura Low Prematura': first_breakdown_time,

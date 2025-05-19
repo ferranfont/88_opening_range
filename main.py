@@ -69,6 +69,7 @@ for fecha in dates:
         df.set_index('Date', inplace=True)
     df.index = df.index.tz_convert('Europe/Madrid')
     df_subset = df[(df.index.date >= START_DATE.date()) & (df.index.date <= END_DATE.date())]
+    fecha_trading_sp = df_subset['Close'].iloc[-1]
 
     print("\n====================== 🔍 df_subset  =====================")
     print(f"Subsegmento: Creado con {len(df_subset)} registros entre {START_DATE} y {END_DATE}")
@@ -147,7 +148,8 @@ for fecha in dates:
         first_breakdown_price=first_breakdown_price,
         first_breakout_bool=first_breakout_bool,
         first_breakdown_bool=first_breakdown_bool,
-        fecha=fecha
+        fecha=fecha,
+        fecha_trading_sp=fecha_trading_sp
     )
     df_stadisticas = pd.DataFrame([resultado])
     print(df_stadisticas.T)

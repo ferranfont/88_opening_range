@@ -175,5 +175,5 @@ def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_
 
     
 
-    import webbrowser
-    webbrowser.open('file://' + os.path.realpath(output_file))
+    #import webbrowser
+    #webbrowser.open('file://' + os.path.realpath(output_file))
