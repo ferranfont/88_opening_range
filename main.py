@@ -22,7 +22,7 @@ if os.path.exists(last_100_dates_file):
         dates = [line.strip() for line in f.readlines()]
     print(f"✅ Loaded {len(dates)} dates from {last_100_dates_file}")
 
-#dates = ['2025-04-28']
+#dates = ['2025-04-22']
 for fecha in dates:      
     print(f"\n📅 ANALIZANDO EL DIA: {fecha}")
     first_breakout_time = None

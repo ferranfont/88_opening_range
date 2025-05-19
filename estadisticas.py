@@ -32,6 +32,7 @@ def estadisticas(
     profit_points = None
     MFE = None
     MAE = None
+    mfe_time = None
     stop_out_time = None
 
     # Seleccionar df_after_entry según tipo de entrada
@@ -67,13 +68,17 @@ def estadisticas(
             target_profit = True
             profit_points = y0_value - closes_below['Close'].min()
 
-    # === MFE y MAE ===
+    # === MFE y MAE con tiempo del MFE ===
     if entry_type == 'Long' and not df_after_entry.empty and first_breakout_price is not None:
-        MFE = df_after_entry['High'].max() - first_breakout_price
+        max_high = df_after_entry['High'].max()
+        MFE = max_high - first_breakout_price
+        mfe_time = df_after_entry[df_after_entry['High'] == max_high].index[0]
         MAE = first_breakout_price - df_after_entry['Low'].min()
 
     elif entry_type == 'Short' and not df_after_entry.empty and first_breakdown_price is not None:
-        MFE = first_breakdown_price - df_after_entry['Low'].min()
+        min_low = df_after_entry['Low'].min()
+        MFE = first_breakdown_price - min_low
+        mfe_time = df_after_entry[df_after_entry['Low'] == min_low].index[0]
         MAE = df_after_entry['High'].max() - first_breakdown_price
 
     # === Resultado final ===
@@ -84,9 +89,11 @@ def estadisticas(
         'Rotura Low Prematura': first_breakdown_time,
         'target_profit_outside_range': target_profit,
         'profit_points_outside_range': profit_points,
+        'target_profit_mfe_time': mfe_time,
         'stop_out_outside_range': stop_out,
-        'stop_out_time': stop_out_time,
         'lost_outside_range': lost,
+        'stop_out_time': stop_out_time,
+        'mfe_time': mfe_time,
         'rango_apertura': y1_value - y0_value,
         'subrango_apertura': y1_subvalue - y0_subvalue,
         'MFE_desde_entrada': MFE,
