@@ -22,7 +22,13 @@ if os.path.exists(last_100_dates_file):
         dates = [line.strip() for line in f.readlines()]
     print(f"✅ Loaded {len(dates)} dates from {last_100_dates_file}")
 
-#dates = ['2025-04-22']
+# ==== FILTRO PARA FECHAS POSTERIORES A 2023-01-02 ====
+min_date = datetime.strptime('2023-01-02', '%Y-%m-%d').date()
+dates = [d for d in dates if d >= '2023-01-02']
+
+print(f"✅ Filtradas {len(dates)} fechas desde el 2023-01-02")
+
+#dates = ['2025-01-23']
 for fecha in dates:      
     print(f"\n📅 ANALIZANDO EL DIA: {fecha}")
     first_breakout_time = None
