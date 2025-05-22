@@ -31,8 +31,8 @@ if os.path.exists(last_100_dates_file):
     print(f"✅ Loaded {len(dates)} dates from {last_100_dates_file}")
 
 # ==== FILTRO PARA FECHAS POSTERIORES A 2025-04-15 ====
-min_date = datetime.strptime('2025-04-15', '%Y-%m-%d').date()
-dates = [d for d in dates if d >= '2025-04-15']
+min_date = datetime.strptime('2024-01-01', '%Y-%m-%d').date()
+dates = [d for d in dates if d >= '2024-01-015']
 
 print(f"✅ Filtradas {len(dates)} fechas")
 

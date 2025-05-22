@@ -1,3 +1,5 @@
+# ES NECESARIO SACAR UNA ESTADÍSTICA POR CADA UNO DE LOS VALORS DE LA LISTA restracements
+
 import os
 import pandas as pd
 
