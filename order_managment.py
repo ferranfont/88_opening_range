@@ -1,153 +1,197 @@
-'''
-import pandas as pd
+# order_management.py
+
 import os
+import pandas as pd
 
-def order_managment(
-        after_open_df,
-        y0_value,
-        y1_value,
-        y0_subvalue,
-        y1_subvalue
-        END_TIME,
-        first_breakout_time,
-        first_breakout_price,
-        first_breakdown_time,
-        first_breakdown_price,
-) 
+def order_management(
+    after_open_df,
+    y0_value, 
+    y1_value,
+    first_breakout_time,
+    first_breakout_price,
+    first_breakdown_time,
+    first_breakdown_price,
+    first_breakout_bool,
+    first_breakdown_bool,
+    retracement,    # e.g., 0.01 for 1% retracement
+    opening_range   # distancia objetivo en puntos
+):
+    """
+    Sistema Andrea Unger: 
+    - Activa vigilancia tras breakout/breakdown.
+    - Entrada real SOLO tras retroceso (retracement).
+    - Salida por target, stop o close de la última vela del día.
+    - Guarda cada trade en outputs/tracking_record.csv.
 
-    # ================== CALCULOS BASE ======================
-    expansion = 0.38
-    y1_expansion = y1_value + (y1_value - y0_value) * expansion
-    y0_expansion = y0_value - (y1_value - y0_value) * expansion
-    opening_range = y1_value - y0_value
-    midpoint = (y1_value + y0_value) / 2
+    Returns:
+        dict con detalles de la operación.
+    """
 
-    stop_line_high = y1_value + opening_range * 0.90
-    stop_line_low = y0_value - opening_range * 0.90
-
-    stop_lost_short = stop_line_high
-    stop_lost_long = stop_line_low
-
-    print("Midpoint:", midpoint)
-
-    df = df_high_volumen_candles.copy()
-    df['Entry'] = df['Close'].apply(
-        lambda x: 'Short' if x > y1_value else ('Long' if x < y0_value else None)
-    )
-    df = df[df['Entry'].notna()].copy()
-    df['Entry_Price'] = df['Close']
-
-    results = []
-
-    for entry_time, row in df.iterrows():
-        entry_price = row['Entry_Price']
-        entry_type = row['Entry']
-
-        tp = midpoint
-        sl = stop_lost_long if entry_type == 'Long' else stop_lost_short
-
-        after_entry = df_subset[df_subset.index > entry_time]
-        max_fav = 0
-        max_adv = 0
-        exit_price = None
-        exit_time = None
-        outcome = None
-
-        for idx, bar in after_entry.iterrows():
-            high = bar['High']
-            low = bar['Low']
-
-            if entry_type == 'Long':
-                current_profit = high - entry_price
-                current_drawdown = entry_price - low
-                if high >= tp:
-                    exit_time, exit_price, outcome = idx, tp, 'TP'
-                    break
-                elif low <= sl:
-                    exit_time, exit_price, outcome = idx, sl, 'SL'
-                    break
-
-            elif entry_type == 'Short':
-                current_profit = entry_price - low
-                current_drawdown = high - entry_price
-                if low <= tp:
-                    exit_time, exit_price, outcome = idx, tp, 'TP'
-                    break
-                elif high >= sl:
-                    exit_time, exit_price, outcome = idx, sl, 'SL'
-                    break
-
-            max_fav = max(max_fav, current_profit)
-            max_adv = max(max_adv, current_drawdown)
-
-        if outcome is None and not after_entry.empty:
-            last_idx = after_entry.index[-1]
-            last_close = after_entry.iloc[-1]['Close']
-            exit_time = last_idx
-            exit_price = last_close
-            outcome = 'close_at_end'
-            if entry_type == 'Long':
-                max_fav = max(max_fav, after_entry['High'].max() - entry_price)
-                max_adv = max(max_adv, entry_price - after_entry['Low'].min())
-            elif entry_type == 'Short':
-                max_fav = max(max_fav, entry_price - after_entry['Low'].min())
-                max_adv = max(max_adv, after_entry['High'].max() - entry_price)
-
-        duration = exit_time - entry_time if exit_time else None
-        profit = (exit_price - entry_price) if entry_type == 'Long' else (entry_price - exit_price)
-        instrument_value = 50
-        profit_currency = profit * instrument_value
-
-        # ========== Breakout/Discount Check ==========
-        pre_entry_window = df_subset[(df_subset.index > END_TIME) & (df_subset.index < entry_time)]
-        break_label = False
-        break_d_label = False
-
-        if not pre_entry_window.empty:
-            range_size = y1_value - y0_value
-            if entry_type == 'Long':
-                break_label = pre_entry_window['High'].gt(y1_value).any()
-                y1_discount = y1_value - range_size * abs(discount_short)
-                break_d_label = pre_entry_window['High'].gt(y1_discount).any()
-            elif entry_type == 'Short':
-                break_label = pre_entry_window['Low'].lt(y0_value).any()
-                y0_discount = y0_value + discount_long
-                break_d_label = pre_entry_window['Low'].lt(y0_discount).any()
-
-        results.append({
-            'Entry_Time': entry_time,
-            'Entry': entry_type,
-            'Entry_Price': entry_price,
-            'TP': tp,
-            'SL': sl,
-            'Exit_Time': exit_time,
-            'Exit_Price': exit_price,
-            'Outcome': outcome,
-            'Duration': duration,
-            'Profit': profit,
-            'Profit_$': profit_currency,
-            'MFE_points': max_fav,
-            'MAE_points': max_adv,
-            'break_oposite': break_label,
-            'break_D_oposite': break_d_label
-        })
-
-    df_orders = pd.DataFrame(results)
-
-    # ===== Guardar resultados =====
-    os.makedirs('outputs', exist_ok=True)
-    summary_file_path = os.path.join('outputs', 'summary_orders.csv')
-
-    if os.path.exists(summary_file_path):
-        existing_df = pd.read_csv(summary_file_path)
-        updated_df = pd.concat([existing_df, df_orders], ignore_index=True)
-        updated_df.to_csv(summary_file_path, index=False)
-        print(f"✅ Archivo actualizado: {summary_file_path}")
+    # 1. Determinar tipo de entrada
+    if first_breakout_bool and (not first_breakdown_bool or (first_breakout_time < first_breakdown_time)):
+        entry_type = 'Long'
+        activation_time = first_breakout_time
+        activation_price = first_breakout_price
+    elif first_breakdown_bool and (not first_breakout_bool or (first_breakdown_time < first_breakout_time)):
+        entry_type = 'Short'
+        activation_time = first_breakdown_time
+        activation_price = first_breakdown_price
     else:
-        df_orders.to_csv(summary_file_path, index=False)
-        print(f"✅ Archivo creado: {summary_file_path}")
+        # No activación
+        result = {
+            'entry_type': None,
+            'activation_time': None,
+            'activation_price': None,
+            'entry_time': None,
+            'entry_price': None,
+            'exit_time': None,
+            'exit_price': None,
+            'target_profit': None,
+            'stop_lost': None,
+            'profit_points': None,
+            'profit_usd': None,
+            'trade_time': None,
+            'retracement_level': retracement,
+            'label': 'No activation'
+        }
+        save_trade_result(result)
+        return result
 
-    return df_orders
+    # 2. Calcular precio de entrada según retracement
+    if entry_type == 'Long':
+        entry_price = activation_price * (1 - retracement)
+    elif entry_type == 'Short':
+        entry_price = activation_price * (1 + retracement)
+    else:
+        entry_price = None
 
+    # 3. Buscar ejecución de entrada tras la activación
+    df_after_activation = after_open_df[after_open_df.index > activation_time].copy()
+    entry_time, executed_entry_price = None, None
 
-'''
+    if entry_type == 'Long':
+        # Busca la primera vela cuyo LOW <= entry_price tras la activación
+        for idx, row in df_after_activation.iterrows():
+            if row['Low'] <= entry_price:
+                entry_time = idx
+                executed_entry_price = entry_price
+                break
+    elif entry_type == 'Short':
+        # Busca la primera vela cuyo HIGH >= entry_price tras la activación
+        for idx, row in df_after_activation.iterrows():
+            if row['High'] >= entry_price:
+                entry_time = idx
+                executed_entry_price = entry_price
+                break
+
+    if entry_time is None:
+        result = {
+            'entry_type': entry_type,
+            'activation_time': activation_time,
+            'activation_price': activation_price,
+            'entry_time': None,
+            'entry_price': entry_price,
+            'exit_time': None,
+            'exit_price': None,
+            'target_profit': None,
+            'stop_lost': None,
+            'profit_points': None,
+            'profit_usd': None,
+            'trade_time': None,
+            'retracement_level': retracement,
+            'label': 'No Entry'
+        }
+        save_trade_result(result)
+        return result
+
+    # 4. Calcular targets y stops según tipo de entrada
+    if entry_type == 'Long':
+        target_profit = executed_entry_price + opening_range
+        stop_lost = y0_value
+    elif entry_type == 'Short':
+        target_profit = executed_entry_price - opening_range
+        stop_lost = y1_value
+
+    # 5. Buscar salida por target, stop o final de día
+    df_after_entry = df_after_activation[df_after_activation.index >= entry_time].copy()
+    exit_time = None
+    exit_price = None
+    label = None
+
+    if entry_type == 'Long':
+        for idx, row in df_after_entry.iterrows():
+            if row['High'] >= target_profit:
+                exit_time = idx
+                exit_price = target_profit
+                label = 'Target Profit'
+                break
+            elif row['Low'] <= stop_lost:
+                exit_time = idx
+                exit_price = stop_lost
+                label = 'Stop Lost'
+                break
+    elif entry_type == 'Short':
+        for idx, row in df_after_entry.iterrows():
+            if row['Low'] <= target_profit:
+                exit_time = idx
+                exit_price = target_profit
+                label = 'Target Profit'
+                break
+            elif row['High'] >= stop_lost:
+                exit_time = idx
+                exit_price = stop_lost
+                label = 'Stop Lost'
+                break
+
+    # Si no sale ni por target ni por stop, cierra al final del día
+    if exit_time is None:
+        final_idx = df_after_entry.index[-1]
+        final_row = df_after_entry.iloc[-1]
+        exit_time = final_idx
+        exit_price = final_row['Close']
+        label = 'EOD'
+
+    # 6. Calcular profit (en puntos y en $)
+    if entry_type == 'Long':
+        profit_points = exit_price - executed_entry_price
+    elif entry_type == 'Short':
+        profit_points = executed_entry_price - exit_price
+    else:
+        profit_points = None
+
+    profit_usd = profit_points * 50 if profit_points is not None else None
+
+    # 7. Calcular duración del trade
+    if (entry_time is not None) and (exit_time is not None):
+        trade_time = (pd.Timestamp(exit_time) - pd.Timestamp(entry_time))
+    else:
+        trade_time = None
+
+    # 8. Compilar resultados
+    result = {
+        'entry_type': entry_type,
+        'activation_time': activation_time,
+        'activation_price': activation_price,
+        'entry_time': entry_time,
+        'entry_price': executed_entry_price,
+        'exit_time': exit_time,
+        'exit_price': exit_price,
+        'target_profit': target_profit,
+        'stop_lost': stop_lost,
+        'profit_points': profit_points,
+        'profit_usd': profit_usd,
+        'trade_time': trade_time,
+        'retracement_level': retracement,
+        'label': label
+    }
+
+    save_trade_result(result)
+    return result
+
+def save_trade_result(result):
+    """Guarda la operación en outputs/tracking_record.csv"""
+    output_path = os.path.join('outputs', 'tracking_record.csv')
+    os.makedirs('outputs', exist_ok=True)
+    df_result = pd.DataFrame([result])
+    write_header = not os.path.exists(output_path)
+    df_result.to_csv(output_path, mode='a', header=write_header, index=False)

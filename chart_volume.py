@@ -3,7 +3,24 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_value, y1_value,  y0_subvalue, y1_subvalue, first_breakout_time=None, first_breakout_price=None, first_breakdown_time=None, first_breakdown_price=None, high_volume_df=None, df_orders=None):
+
+def graficar_precio(
+    df, 
+    too_late_patito_negro, 
+    titulo, 
+    START_TIME, 
+    END_TIME, 
+    y0_value, 
+    y1_value,  
+    y0_subvalue, 
+    y1_subvalue, 
+    first_breakout_time=None, 
+    first_breakout_price=None, 
+    first_breakdown_time=None, 
+    first_breakdown_price=None, 
+    high_volume_df=None, 
+    df_orders=None
+):
     if df.empty or not all(col in df.columns for col in ['Open', 'High', 'Low', 'Close']):
         print("❌ DataFrame vacío o faltan columnas OHLC.")
         return
@@ -19,12 +36,7 @@ def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_
     y1_expansion = y1_value + (y1_value - y0_value) * expansion
     y0_expansion = y0_value - (y1_value - y0_value) * expansion
     opening_range = y1_value - y0_value
-    midpoint = (y1_value+y0_value)/2
-    stop_line_high = y1_value + opening_range * 0.90  # Stop en función del rango de la apertura menos un factor
-    stop_line_low = y0_value - opening_range * 0.90   # Stop en función del rango de la apertura menos un factor
-
-    y0_hotspot = y0_expansion + opening_range * 0.20 # hotspot relativo al rango de la pre apertura
-    y1_hotspot = y1_expansion - opening_range * 0.20 # hotspot relativo al rango de la pre apertura
+    midpoint = (y1_value + y0_value) / 2
 
     fig = make_subplots(
         rows=2, cols=1,
@@ -34,7 +46,7 @@ def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_
         subplot_titles=(titulo, '')
     )
 
-    # Candlestick
+    # --- Candlestick chart
     fig.add_trace(go.Candlestick(
         x=df.index,
         open=df['Open'],
@@ -46,6 +58,7 @@ def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_
         hoverinfo='none'
     ), row=1, col=1)
 
+    # --- Volumen bar (row 2)
     if 'Volumen' in df.columns:
         fig.add_trace(go.Bar(
             x=df.index,
@@ -56,40 +69,29 @@ def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_
             name='Volumen'
         ), row=2, col=1)
 
-    # Shapes
-    fig.add_shape(type="rect", x0=START_TIME, x1=END_TIME, y0=y0_value, y1=y1_value,  # cuadradito de apertura
+    # --- Opening range rectangle
+    fig.add_shape(type="rect", x0=START_TIME, x1=END_TIME, y0=y0_value, y1=y1_value,
                   xref='x', yref='y1', line=dict(color='lightblue', width=1),
                   fillcolor='rgba(173, 216, 230, 0.5)', layer='below')
     
-    fig.add_shape(type="rect", x0=START_TIME, x1=END_TIME, y0=y0_subvalue, y1=y1_subvalue,  # cuadradito de apertura con los cierres
-                xref='x', yref='y1', line=dict(color='lightblue', width=1),
-                fillcolor='rgba(173, 216, 230, 0.5)', layer='below')
+    # --- Closing range rectangle
+    fig.add_shape(type="rect", x0=START_TIME, x1=END_TIME, y0=y0_subvalue, y1=y1_subvalue,
+                  xref='x', yref='y1', line=dict(color='lightblue', width=1),
+                  fillcolor='rgba(173, 216, 230, 0.5)', layer='below')
 
-    fig.add_shape(type="line", x0=START_TIME, x1=START_TIME, y0=0, y1=1,     # hora de apertura vertical line
-                  xref="x", yref="paper", line=dict(color="blue", width=1), opacity=0.5)
+    # --- Vertical lines
+    fig.add_shape(type="line", x0=START_TIME, x1=START_TIME, y0=0, y1=1, xref="x", yref="paper", line=dict(color="blue", width=1), opacity=0.5)
+    fig.add_shape(type="line", x0=END_TIME, x1=END_TIME, y0=0, y1=1, xref="x", yref="paper", line=dict(color="grey", width=1), opacity=0.5)
+    fig.add_shape(type="line", x0=too_late_patito_negro, x1=too_late_patito_negro, y0=0, y1=1, xref="x", yref="paper", line=dict(color="grey", width=1), opacity=0.5)
 
-    fig.add_shape(type="line", x0=END_TIME, x1=END_TIME, y0=0, y1=1,        # hora de fin apertura vertical line
-                  xref="x", yref="paper", line=dict(color="grey", width=1), opacity=0.5)
-    
-    fig.add_shape(type="line", x0=too_late_patito_negro, x1=too_late_patito_negro, y0=0, y1=1,   # hora de fin operativa
-                xref="x", yref="paper", line=dict(color="grey", width=1), opacity=0.5)
-    
-    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=midpoint, y1=midpoint,  # linea midpoint del rango de pre apertura
-                  xref="x", yref="y1", line=dict(color="grey", width=1,dash="dot"), opacity=0.6) 
-    
-    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y1_value, y1=y1_value, # linea entrada superior
-                  xref="x", yref="y1", line=dict(color="blue", width=1), opacity=0.7)  
-    
-    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y0_value, y1=y0_value, # linea entrada inferior
-                  xref="x", yref="y1", line=dict(color="blue", width=1), opacity=0.7)  
-    
-    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y1_subvalue, y1=y1_subvalue, # linea subentrada superior
-                  xref="x", yref="y1", line=dict(color="blue", width=1, dash="dot"), opacity=0.7)  
-    
-    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y0_subvalue, y1=y0_subvalue, # linea subentrada inferior
-                  xref="x", yref="y1", line=dict(color="blue", width=1, dash="dot"), opacity=0.7)  
+    # --- Horizontal reference lines
+    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=midpoint, y1=midpoint, xref="x", yref="y1", line=dict(color="grey", width=1,dash="dot"), opacity=0.6) 
+    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y1_value, y1=y1_value, xref="x", yref="y1", line=dict(color="blue", width=1), opacity=0.7)  
+    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y0_value, y1=y0_value, xref="x", yref="y1", line=dict(color="blue", width=1), opacity=0.7)  
+    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y1_subvalue, y1=y1_subvalue, xref="x", yref="y1", line=dict(color="blue", width=1, dash="dot"), opacity=0.7)  
+    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y0_subvalue, y1=y0_subvalue, xref="x", yref="y1", line=dict(color="blue", width=1, dash="dot"), opacity=0.7)  
 
-
+    # --- Markers for breakout/breakdown
     if first_breakout_time and first_breakout_price:
         fig.add_trace(go.Scatter(
             x=[first_breakout_time],
@@ -108,6 +110,7 @@ def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_
             name='First Breakdown'
         ), row=1, col=1)
     
+    # --- Markers for high volume candles
     if high_volume_df is not None and not high_volume_df.empty:
         fig.add_trace(go.Scatter(
             x=high_volume_df.index,
@@ -117,33 +120,41 @@ def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_
             name='High Volume Candles'
         ), row=1, col=1)
 
-    if df_orders is not None and not df_orders.empty:   # establece las salidas
-        fig.add_trace(go.Scatter(
-            x=df_orders['Exit_Time'],
-            y=df_orders['Exit_Price'],
-            mode='markers',
-            marker=dict(color='red', size=12, symbol='x'),
-            name='Exit Orders'
-        ), row=1, col=1)
-
-    if df_orders is not None and not df_orders.empty:   # establece las salidas
-        fig.add_trace(go.Scatter(
-            x=df_orders['Entry_Time'],
-            y=df_orders['Entry_Price'],
-            mode='markers',
-            marker=dict(color='lime', size=14, symbol='star'), # establece las entradas
-            name='Exit Orders'
-        ), row=1, col=1)
-
+    # --- Entry/Exit Orders and lines
     if df_orders is not None and not df_orders.empty:
+        # Triángulo verde para entrada long, rojo para short
         for _, row in df_orders.iterrows():
-            fig.add_trace(go.Scatter(
-                x=[row['Entry_Time'], row['Exit_Time']],
-                y=[row['Entry_Price'], row['Exit_Price']],
-                mode='lines',
-                line=dict(color='gray', width=1, dash='dot'),
-                name='Entry to Exit'
-            ), row=1, col=1)
+            # Entrada
+            if pd.notnull(row['entry_time']) and pd.notnull(row['entry_price']):
+                color = 'limegreen' if row['entry_type'] == 'Long' else 'red'
+                symbol = 'triangle-up' if row['entry_type'] == 'Long' else 'triangle-down'
+                fig.add_trace(go.Scatter(
+                    x=[row['entry_time']],
+                    y=[row['entry_price']],
+                    mode='markers',
+                    marker=dict(color=color, size=18, symbol=symbol),
+                    name='Entry'
+                ), row=1, col=1)
+
+            # Salida
+            if pd.notnull(row['exit_time']) and pd.notnull(row['exit_price']):
+                fig.add_trace(go.Scatter(
+                    x=[row['exit_time']],
+                    y=[row['exit_price']],
+                    mode='markers',
+                    marker=dict(color='black', size=14, symbol='x'),
+                    name='Exit'
+                ), row=1, col=1)
+
+            # Línea de entrada a salida
+            if pd.notnull(row['entry_time']) and pd.notnull(row['entry_price']) and pd.notnull(row['exit_time']) and pd.notnull(row['exit_price']):
+                fig.add_trace(go.Scatter(
+                    x=[row['entry_time'], row['exit_time']],
+                    y=[row['entry_price'], row['exit_price']],
+                    mode='lines',
+                    line=dict(color='gray', width=1, dash='dot'),
+                    name='Entry to Exit'
+                ), row=1, col=1)
 
     fig.update_layout(
         dragmode='pan',
@@ -168,12 +179,10 @@ def graficar_precio(df, too_late_patito_negro, titulo, START_TIME, END_TIME, y0_
     fig.write_html(output_file, config=config)
     print(f"📁 Gráfico interactivo guardado como {output_file}")
 
-
     # Guardar el HTML sin abrir navegador
     fig.write_html(output_file, config=config, auto_open=False)
     print(f"📁 Gráfico interactivo guardado como {output_file}")
 
-    
-
-    #import webbrowser
-    #webbrowser.open('file://' + os.path.realpath(output_file))
+    # comentar para iterar con el objetivo de no saturar el Kernel
+    import webbrowser
+    webbrowser.open('file://' + os.path.realpath(output_file))
