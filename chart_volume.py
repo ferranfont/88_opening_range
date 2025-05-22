@@ -183,6 +183,6 @@ def graficar_precio(
     fig.write_html(output_file, config=config, auto_open=False)
     print(f"📁 Gráfico interactivo guardado como {output_file}")
 
-    # comentar para iterar con el objetivo de no saturar el Kernel
+    # COMENTAR PARA NO SATURAR LA KERNEL DEL ORDENADOR
     import webbrowser
     webbrowser.open('file://' + os.path.realpath(output_file))

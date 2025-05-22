@@ -5,7 +5,6 @@ from datetime import datetime
 import order_managment as oem
 import chart_volume as chart
 import estadisticas as st
-import plotly.graph_objects as go
 import find_high_volume_candles as hv
 import webbrowser
 import os
@@ -15,7 +14,9 @@ load_dotenv()
 
 # ===================== CONFIGURACIÓN DE GRID =====================
 last_100_dates_file = os.path.join('outputs', 'unique_dates.txt')
-retracts = [0, 0.001, 0.002, 0.003, 0.005, 0.008, 0.01, 0.05, 0.08, 0.1, 0.5]
+# Puedes ampliar retracts si quieres hacer el grid completo
+retracts = [0, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.05, 0.1, 0.5]
+#retracts = [0, 0.001]
 
 # ===================== LIMPIEZA DE TRACKING =====================
 tracking_file = 'outputs/tracking_record.csv'
@@ -29,7 +30,7 @@ if os.path.exists(last_100_dates_file):
         dates = [line.strip() for line in f.readlines()]
     print(f"✅ Loaded {len(dates)} dates from {last_100_dates_file}")
 
-# ==== FILTRO PARA FECHAS POSTERIORES A 2025-04-11 ====
+# ==== FILTRO PARA FECHAS POSTERIORES A 2025-04-15 ====
 min_date = datetime.strptime('2025-04-15', '%Y-%m-%d').date()
 dates = [d for d in dates if d >= '2025-04-15']
 
@@ -104,7 +105,6 @@ for retracement in retracts:
             first_breakdown_bool = True
 
         # ===================== ESTADÍSTICAS (OPCIONAL) =====================
-        
         resultado = st.estadisticas(
             after_open_df=after_open_df,
             y0_value=y0_value,
@@ -153,26 +153,26 @@ for retracement in retracts:
         print("\n📌 Señales generadas por Order Management:")
         print(df_trade_result.T)
 
-        # GRAFICACIÓN SOLO DEL PRIMER RETRACEMENT DE LA GRID (puedes cambiar esto si quieres graficar todos)
-        # if retracement == retracts[0]:
-        #     titulo = f"Chart_{fecha}_retro_{retracement}"
-        #     chart.graficar_precio(
-        #         df_subset,
-        #         too_late_patito_negro,
-        #         titulo,
-        #         START_TIME,
-        #         END_TIME,
-        #         y0_value,
-        #         y1_value,
-        #         y0_subvalue,
-        #         y1_subvalue,
-        #         first_breakout_time,
-        #         first_breakout_price,
-        #         first_breakdown_time,
-        #         first_breakdown_price,
-        #         df_high_volumen_candles,
-        #         df_orders=df_trade_result
-        #     )
+        # GRAFICACIÓN SOLO PARA EL PRIMER RETRACEMENT (por eficiencia)
+        if retracement == retracts[0]:     # MODIFICAR ESTE PARÁMETRO PARA CREAT GRAFICOS PARA TODOS LOS RETROCESOS
+            titulo = f"Chart_{fecha}_retro_{retracement}"
+            chart.graficar_precio(
+                df_subset,
+                too_late_patito_negro,
+                titulo,
+                START_TIME,
+                END_TIME,
+                y0_value,
+                y1_value,
+                y0_subvalue,
+                y1_subvalue,
+                first_breakout_time,
+                first_breakout_price,
+                first_breakdown_time,
+                first_breakdown_price,
+                df_high_volumen_candles,
+                df_orders=df_trade_result
+            )
 
 # ===================== RESUMEN Y PUBLICACIÓN HTML =====================
 tracking_file = 'outputs/tracking_record.csv'
@@ -181,7 +181,6 @@ df = pd.read_csv(tracking_file)
 # Limpia tipos numéricos
 for col in ['profit_points', 'profit_usd', 'retracement_level']:
     df[col] = pd.to_numeric(df[col], errors='coerce')
-
 df = df[df['entry_type'].notnull() & df['retracement_level'].notnull()]
 
 # --- TABLA 1: Por entry_type y retracement_level ---
@@ -205,6 +204,12 @@ summary2 = grouped2.agg(
     avg_profit_usd=('profit_usd', lambda x: round(x.mean(), 2))
 ).reset_index()
 summary2 = summary2.sort_values('retracement_level').reset_index(drop=True)
+
+# GUARDA summary2 PARA EL HISTOGRAMA
+summary2_csv = 'outputs/summary_by_retracement_only.csv'
+summary2.to_csv(summary2_csv, index=False)
+print(f"\n✅ summary2 guardado como CSV en {summary2_csv}")
+
 
 # Formatea decimales SOLO para HTML (no afecta los cálculos)
 summary['retracement_level'] = summary['retracement_level'].map('{:.3f}'.format)
@@ -256,6 +261,38 @@ webbrowser.open('file://' + output_file)
 print(f"\n✅ Resumen HTML guardado en {output_file} y abierto en tu navegador.")
 
 
+# ============= HISTOGRAMA DE SUM PROFIT POINTS POR RETRACEMENT LEVEL =============
+import plotly.graph_objects as go
 
+summary_csv = 'outputs/summary_by_retracement_only.csv'
+if os.path.exists(summary_csv):
+    df_hist = pd.read_csv(summary_csv)
+    df_hist.columns = [col.strip() for col in df_hist.columns]
+    for col in ['retracement_level', 'sum_profit_points']:
+        if col in df_hist.columns:
+            df_hist[col] = pd.to_numeric(df_hist[col], errors='coerce')
+    df_hist = df_hist.sort_values('retracement_level')
 
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=df_hist['retracement_level'],
+        y=df_hist['sum_profit_points'],
+        text=df_hist['sum_profit_points'],
+        textposition='outside',
+        marker_color='royalblue'
+    ))
+    fig.update_layout(
+        title="Histograma: Retracement Level vs. Sum Profit Points",
+        xaxis_title="Retracement Level",
+        yaxis_title="Sum Profit Points",
+        template="plotly_white",
+        width=900,
+        height=450
+    )
 
+    hist_output = os.path.abspath('charts/histograma_sum_profit_points.html')
+    fig.write_html(hist_output, auto_open=False)
+    print(f"\n✅ Histograma guardado en {hist_output}")
+    webbrowser.open('file://' + hist_output)
+else:
+    print(f"\n❌ No se encontró el archivo {summary_csv} para crear el histograma.")
