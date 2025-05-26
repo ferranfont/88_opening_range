@@ -5,20 +5,21 @@ from plotly.subplots import make_subplots
 
 
 def graficar_precio(
-    df, 
-    too_late_patito_negro, 
-    titulo, 
-    START_TIME, 
-    END_TIME, 
-    y0_value, 
-    y1_value,  
-    y0_subvalue, 
-    y1_subvalue, 
-    first_breakout_time=None, 
-    first_breakout_price=None, 
-    first_breakdown_time=None, 
-    first_breakdown_price=None, 
-    high_volume_df=None, 
+    df,
+    limit_time,
+    too_late_patito_negro,
+    titulo,
+    START_TIME,
+    END_TIME,
+    y0_value,
+    y1_value,
+    y0_subvalue,
+    y1_subvalue,
+    first_breakout_time=None,
+    first_breakout_price=None,
+    first_breakdown_time=None,
+    first_breakdown_price=None,
+    high_volume_df=None,
     df_orders=None
 ):
     if df.empty or not all(col in df.columns for col in ['Open', 'High', 'Low', 'Close']):
@@ -37,7 +38,11 @@ def graficar_precio(
     y0_expansion = y0_value - (y1_value - y0_value) * expansion
     opening_range = y1_value - y0_value
     midpoint = (y1_value + y0_value) / 2
+    titulo = str(titulo) + "_"+ 'Opening_Range_' + str(opening_range)
 
+
+    zona = opening_range/10
+    
     fig = make_subplots(
         rows=2, cols=1,
         shared_xaxes=True,
@@ -77,20 +82,54 @@ def graficar_precio(
     # --- Closing range rectangle
     fig.add_shape(type="rect", x0=START_TIME, x1=END_TIME, y0=y0_subvalue, y1=y1_subvalue,
                   xref='x', yref='y1', line=dict(color='lightblue', width=1),
-                  fillcolor='rgba(173, 216, 230, 0.5)', layer='below')
+                  fillcolor='rgba(173, 216, 230, 0.8)', layer='below')
+    
+    # Extraer entry_type dentro de la función de graficado
+    entry_type = None
+    if df_orders is not None and 'entry_type' in df_orders.columns:
+        entry_type = df_orders.iloc[0]['entry_type']
+
+    if entry_type == 'Long':
+        # --- Rectángulo para la compresión zona A
+        fig.add_shape(type="rect", x0=END_TIME, x1=limit_time, y0=y1_value-zona, y1=y1_value,
+                    xref='x', yref='y1', line=dict(color='green', width=0),
+                    fillcolor='rgba(119, 221, 119, 0.2)', layer='below')
+        # --- Rectángulo para la compresión zona B
+        fig.add_shape(type="rect", x0=END_TIME, x1=limit_time, y0=y1_value-(zona*2), y1=y1_value-zona,
+                    xref='x', yref='y1', line=dict(color='green', width=0),
+                    fillcolor='rgba(119, 221, 119, 0.4)', layer='below')
+        # --- Rectángulo para la compresión zona C
+        fig.add_shape(type="rect", x0=END_TIME, x1=limit_time, y0=y1_value-(zona*3), y1=y1_value-(zona*2),
+                    xref='x', yref='y1', line=dict(color='green', width=0),
+                    fillcolor='rgba(119, 221, 119, 0.6)', layer='below')
+    # Zonas para Short (rojo pastel, de más transparente abajo a más opaco arriba)
+    elif entry_type == 'Short':
+        fig.add_shape(type="rect", x0=END_TIME, x1=limit_time, y0=y0_value, y1=y0_value+zona,
+                    xref='x', yref='y1', line=dict(color='red', width=0),
+                    fillcolor='rgba(252, 120, 120, 0.2)', layer='below')
+        fig.add_shape(type="rect", x0=END_TIME, x1=limit_time, y0=y0_value+zona, y1=y0_value+(zona*2),
+                    xref='x', yref='y1', line=dict(color='red', width=0),
+                    fillcolor='rgba(252, 120, 120, 0.4)', layer='below')
+        fig.add_shape(type="rect", x0=END_TIME, x1=limit_time, y0=y0_value+(zona*2), y1=y0_value+(zona*3),
+                    xref='x', yref='y1', line=dict(color='red', width=0),
+                    fillcolor='rgba(252, 120, 120, 0.6)', layer='below')
+
+
 
     # --- Vertical lines
+    
     fig.add_shape(type="line", x0=START_TIME, x1=START_TIME, y0=0, y1=1, xref="x", yref="paper", line=dict(color="blue", width=1), opacity=0.5)
     fig.add_shape(type="line", x0=END_TIME, x1=END_TIME, y0=0, y1=1, xref="x", yref="paper", line=dict(color="grey", width=1), opacity=0.5)
     fig.add_shape(type="line", x0=too_late_patito_negro, x1=too_late_patito_negro, y0=0, y1=1, xref="x", yref="paper", line=dict(color="grey", width=1), opacity=0.5)
+    fig.add_shape(type="line", x0=START_TIME, x1=START_TIME, y0=0, y1=1, xref="x", yref="paper", line=dict(color="blue", width=1), opacity=0.5)
+    fig.add_shape(type="line", x0=limit_time, x1=limit_time, y0=0, y1=1, xref="x", yref="paper", line=dict(color="grey", width=1), opacity=0.5)  
 
     # --- Horizontal reference lines
     fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=midpoint, y1=midpoint, xref="x", yref="y1", line=dict(color="grey", width=1,dash="dot"), opacity=0.6) 
     fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y1_value, y1=y1_value, xref="x", yref="y1", line=dict(color="blue", width=1), opacity=0.7)  
     fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y0_value, y1=y0_value, xref="x", yref="y1", line=dict(color="blue", width=1), opacity=0.7)  
     fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y1_subvalue, y1=y1_subvalue, xref="x", yref="y1", line=dict(color="blue", width=1, dash="dot"), opacity=0.7)  
-    fig.add_shape(type="line", x0=END_TIME, x1=too_late_patito_negro, y0=y0_subvalue, y1=y0_subvalue, xref="x", yref="y1", line=dict(color="blue", width=1, dash="dot"), opacity=0.7)  
-
+  
     # --- Markers for breakout/breakdown
     if first_breakout_time and first_breakout_price:
         fig.add_trace(go.Scatter(

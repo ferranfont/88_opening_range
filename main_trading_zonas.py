@@ -2,7 +2,7 @@
 from dotenv import load_dotenv
 import pandas as pd
 from datetime import datetime
-import order_managment as oem
+import order_managment_zonas as omz
 import chart_volume as chart
 import estadisticas as st
 import find_high_volume_candles as hv
@@ -16,7 +16,7 @@ load_dotenv()
 last_100_dates_file = os.path.join('outputs', 'unique_dates.txt')
 # Puedes ampliar retracts si quieres hacer el grid completo
 #retracts = [0, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.05, 0.1, 0.5]
-retracts = [0, 0.001]
+retracts = [0]
 
 # ===================== LIMPIEZA DE TRACKING =====================
 tracking_file = 'outputs/tracking_record.csv'
@@ -35,6 +35,7 @@ min_date = datetime.strptime('2024-01-15', '%Y-%m-%d').date()
 dates = [d for d in dates if d >= '2024-01-15']
 
 dates = ['2024-01-15', '2024-01-16', '2024-01-17', '2024-01-18', '2024-01-19', '2024-01-22', '2024-01-23', '2024-01-24', '2024-01-25', '2024-01-26' ]
+#dates = ['2024-01-25']
 print(f"✅ Filtradas {len(dates)} fechas")
 
 # ===================== BUCLE PRINCIPAL DE GRID =====================
@@ -46,15 +47,15 @@ for retracement in retracts:
         hora = "16:30:00"
         lookback_min = 60
         entry_shift = 0
-        too_late_patito_negro = "21:55:00"
-        too_late_brake_fractal_pauta_plana = "19:00:00"
-
         START_DATE = pd.Timestamp(fecha, tz='Europe/Madrid')
         END_DATE = pd.Timestamp(fecha, tz='Europe/Madrid')
         END_TIME = pd.Timestamp(f'{fecha} {hora}', tz='Europe/Madrid')
         START_TIME = END_TIME - pd.Timedelta(minutes=lookback_min)
+        too_late_patito_negro = "21:55:00"
+        too_late_brake_fractal_pauta_plana = "18:30:00"
+        limit_time = END_TIME + pd.Timedelta(minutes=90)   #Hora máxima para admitir traders en ese dia
+        strength_target =5
         too_late_patito_negro = pd.Timestamp(f'{fecha} {too_late_patito_negro}', tz='Europe/Madrid')
-
         TRADING_WINDOW_TIME = (pd.Timestamp(f'{fecha} {hora}', tz='Europe/Madrid'), pd.Timestamp(f'{fecha} {too_late_patito_negro}', tz='Europe/Madrid'))
 
         # ===================== DATOS =====================
@@ -136,46 +137,51 @@ for retracement in retracts:
         df_high_volumen_candles = df_high_volumen_candles[df_high_volumen_candles['Volumen_Alto']]
 
         # ===================== ORDER MANAGMENT Y TRACKING =====================
-        trade_result = oem.order_management(
+        df_trade_result = omz.order_management_zonas(
             after_open_df=after_open_df,
+            limit_time=limit_time,
             y0_value=y0_value,
             y1_value=y1_value,
-            first_breakout_time=first_breakout_time,
-            first_breakout_price=first_breakout_price,
-            first_breakdown_time=first_breakdown_time,
-            first_breakdown_price=first_breakdown_price,
-            first_breakout_bool=first_breakout_bool,
-            first_breakdown_bool=first_breakdown_bool,
+            y0_subvalue=y0_subvalue,
+            y1_subvalue=y1_subvalue,
+            opening_range=opening_range,
             retracement=retracement,
-            opening_range=opening_range
+            strength_target=strength_target
         )
 
-        df_trade_result = pd.DataFrame([trade_result])
-        print("\n📌 Señales generadas por Order Management:")
+
+        print("\n📌 Señales generadas por Order Management ZONAS:")
         print(df_trade_result.T)
+
+
+        #df_trade_result = pd.DataFrame([trade_result])
+        #print("\n📌 Señales generadas por Order Management:")
+        #print(df_trade_result.T)
 
         # GRAFICACIÓN SOLO PARA EL PRIMER RETRACEMENT (por eficiencia)
         
         if retracement == retracts[0]:     # MODIFICAR ESTE PARÁMETRO PARA CREAT GRAFICOS PARA TODOS LOS RETROCESOS
             titulo = f"Chart_{fecha}_retro_{retracement}"
             entry_type = df_trade_result.iloc[0]['entry_type'] if 'entry_type' in df_trade_result.columns else None
-            chart.graficar_precio(
-                df_subset,
-                too_late_patito_negro,
-                titulo,
-                START_TIME,
-                END_TIME,
-                y0_value,
-                y1_value,
-                y0_subvalue,
-                y1_subvalue,
-                first_breakout_time,
-                first_breakout_price,
-                first_breakdown_time,
-                first_breakdown_price,
-                df_high_volumen_candles,
-                df_orders=df_trade_result
-            )
+        chart.graficar_precio(
+            df_subset,
+            limit_time,
+            too_late_patito_negro,
+            titulo,
+            START_TIME,
+            END_TIME,
+            y0_value,
+            y1_value,
+            y0_subvalue,
+            y1_subvalue,
+            first_breakout_time,
+            first_breakout_price,
+            first_breakdown_time,
+            first_breakdown_price,
+            df_high_volumen_candles,
+            df_trade_result
+        )
+
             
 # ===================== RESUMEN Y PUBLICACIÓN HTML =====================
 tracking_file = 'outputs/tracking_record.csv'

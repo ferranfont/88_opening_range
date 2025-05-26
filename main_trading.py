@@ -29,7 +29,7 @@ if os.path.exists(last_100_dates_file):
     print(f"✅ Loaded {len(dates)} dates from {last_100_dates_file}")
 
 # ==== FILTRO PARA FECHAS ====
-dates = [d for d in dates if d >= '2015-01-01']
+dates = [d for d in dates if d >= '2020-01-01']
 
 print(f"✅ Filtradas {len(dates)} fechas")
 

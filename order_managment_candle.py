@@ -1,3 +1,4 @@
+
 import pandas as pd
 import os
 
@@ -120,6 +121,7 @@ def order_managment(
 
         results.append({
             'Alert_Time': alert_idx,
+            'Entry_type': entry_type,
             'Entry_Time': entry_time,
             'Entry': entry_type,
             'Entry_Price': entry_price,
