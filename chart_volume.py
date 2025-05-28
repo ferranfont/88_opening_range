@@ -87,7 +87,8 @@ def graficar_precio(
     # Extraer entry_type dentro de la función de graficado
     entry_type = None
     if df_orders is not None and 'entry_type' in df_orders.columns:
-        entry_type = df_orders.iloc[0]['entry_type']
+        entry_type = df_orders.iloc[0]['entry_type'] if not df_orders.empty and 'entry_type' in df_orders.columns else None
+
 
     if entry_type == 'Long':
         # --- Rectángulo para la compresión zona A
@@ -203,8 +204,8 @@ def graficar_precio(
         xaxis2=dict(showgrid=False, showline=True, linewidth=1, linecolor='lightgrey', mirror=False),
         yaxis2=dict(title="", showgrid=False, showline=True, linewidth=1, linecolor='lightgrey', mirror=True),
         xaxis_rangeslider_visible=False,
-        width=1600,
-        height=int(1500 * 0.6),
+        width=1500,
+        height=int(1400 * 0.6),
         margin=dict(l=20, r=20, t=40, b=20),
         font=dict(size=12, color="black"),
         plot_bgcolor='rgba(255,255,255,0.05)',
