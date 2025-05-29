@@ -36,7 +36,7 @@ for retracement in retracts:
     print(f"\n=== PROBANDO RETRACEMENT: {retracement} ===")
     for fecha in dates:
         print(f"\n📅 ANALIZANDO EL DIA: {fecha} | Retracement: {retracement}")
-        hora = "16:30:00"
+        hora = "16:30:00"                                                               #VALOR UNGER == 16:30:00 H
         lookback_min = 60
         START_DATE = pd.Timestamp(fecha, tz='Europe/Madrid')
         END_DATE = pd.Timestamp(fecha, tz='Europe/Madrid')
@@ -44,7 +44,7 @@ for retracement in retracts:
         START_TIME = END_TIME - pd.Timedelta(minutes=lookback_min)
         too_late_patito_negro = pd.Timestamp(f'{fecha} 21:55:00', tz='Europe/Madrid')
         limit_time = END_TIME + pd.Timedelta(minutes=90)
-        strength_target = 5
+        strength_target = 9       # aquí marcamos la fortaleza exigida para emplazar una segunda entrada
         TRADING_WINDOW_TIME = (END_TIME, too_late_patito_negro)
 
         # === DATOS ===
@@ -160,3 +160,18 @@ for retracement in retracts:
             )
         else:
             print("No hay señales generadas por Order Management ZONAS para esta fecha.")
+
+# === ACUMULACIÓN PROFIT IN USD ===
+
+# Lee tu archivo
+df = pd.read_csv('outputs/tracking_record.csv')
+
+# Asegúrate de que la columna 'profit_usd' es numérica
+df['profit_usd'] = pd.to_numeric(df['profit_usd'], errors='coerce').fillna(0)
+
+# Calcula la suma acumulada
+df['cum_profit_usd'] = df['profit_usd'].cumsum()
+
+# Guarda el resultado (opcional)
+df.to_csv('outputs/tracking_record.csv', index=False)
+

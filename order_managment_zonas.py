@@ -34,6 +34,9 @@ def order_management_zonas(
     is_short = False
     start_idx = None
 
+    # Definir multiplicador_fraccion para la entrada inicial
+    multiplicador_fraccion = 3.5   # Por defecto (sistema Unger)
+
     # --- ENTRADA BREAKOUT ---
     if breakout_time is not pd.NaT and (breakdown_time is pd.NaT or breakout_time < breakdown_time):
         price = breakout_rows.iloc[0]['Close']
@@ -48,9 +51,14 @@ def order_management_zonas(
             'average_entry_price': price,
             'entry_times': [str(breakout_time)],
             'entry_prices': [price],
-            'num_positions': 1,
+            'num_positions': 1,  # Solo una posición inicial                        #NUM MAXIMO DE POSICIONES DEL SISTEMA UNGER
             'retracement_level': retracement,
-            'stop_loss': y1_value - 4 * fraction
+            'stop_loss': y1_value - multiplicador_fraccion * fraction,
+            'output_tag': np.nan,
+            'profit_points': np.nan,
+            'profit_usd': np.nan,
+            'cum_profit_usd': np.nan,
+            'time_in': np.nan
         })
         is_long = True
         start_idx = after_open_df.index.get_loc(breakout_time) + 1
@@ -71,7 +79,12 @@ def order_management_zonas(
             'entry_prices': [price],
             'num_positions': 1,
             'retracement_level': retracement,
-            'stop_loss': y0_value + 4 * fraction
+            'stop_loss': y0_value + multiplicador_fraccion * fraction,
+            'output_tag': np.nan,
+            'profit_points': np.nan,
+            'profit_usd': np.nan,
+            'cum_profit_usd': np.nan,
+            'time_in': np.nan
         })
         is_short = True
         start_idx = after_open_df.index.get_loc(breakdown_time) + 1
@@ -82,7 +95,7 @@ def order_management_zonas(
 
     # === Lógica de fuerza SOLO después de la ruptura ===
     subdf = after_open_df.iloc[start_idx:]
-    max_strength_entries = 1
+    max_strength_entries = 2                                  # INDICAR 1 EN EL SISTEMA DE ANDREA UNGER
     strength_entries = 0
     allow_strength_entry = True
     strength = 0
@@ -142,6 +155,7 @@ def order_management_zonas(
 
             if strength >= strength_target:
                 avg_entry = np.mean(entry_prices)
+                multiplicador_fraccion = 0  # Ahora el stop va a breakeven en la fuerza (cambia esto si quieres otro valor)
                 trades.append({
                     'entry_type': 'Long',
                     'entry_time': idx,
@@ -155,9 +169,14 @@ def order_management_zonas(
                     'entry_prices': entry_prices.copy(),
                     'num_positions': len(entry_times),
                     'retracement_level': retracement,
-                    'stop_loss': y1_value - 4 * fraction
+                    'stop_loss': y1_value - multiplicador_fraccion * fraction,
+                    'output_tag': np.nan,
+                    'profit_points': np.nan,
+                    'profit_usd': np.nan,
+                    'cum_profit_usd': np.nan,
+                    'time_in': np.nan
                 })
-                strength_entries += 1
+                strength_entries += 1     
                 allow_strength_entry = False
                 strength = 0
                 entry_times = []
@@ -198,6 +217,7 @@ def order_management_zonas(
 
             if strength >= strength_target:
                 avg_entry = np.mean(entry_prices)
+                multiplicador_fraccion = 0  # Ahora el stop va a breakeven en la fuerza (cambia esto si quieres otro valor)
                 trades.append({
                     'entry_type': 'Short',
                     'entry_time': idx,
@@ -211,7 +231,12 @@ def order_management_zonas(
                     'entry_prices': entry_prices.copy(),
                     'num_positions': len(entry_times),
                     'retracement_level': retracement,
-                    'stop_loss': y0_value + 4 * fraction
+                    'stop_loss': y0_value + multiplicador_fraccion * fraction,
+                    'output_tag': np.nan,
+                    'profit_points': np.nan,
+                    'profit_usd': np.nan,
+                    'cum_profit_usd': np.nan,
+                    'time_in': np.nan
                 })
                 strength_entries += 1
                 allow_strength_entry = False
@@ -220,55 +245,66 @@ def order_management_zonas(
                 entry_prices = []
                 zona_str = []
 
-    # ======= RE-CALCULAR TP/SL SOBRE EL PROMEDIO DE ENTRADAS DEL DÍA ==========
+    # ======= RE-CALCULAR TP/SL SOBRE EL PROMEDIO DE ENTRADAS DEL DÍA CON TRAILING STOP =======
     cum_profit = prev_cum_profit_usd
     if len(trades) > 0:
         all_entry_prices = []
         for trade in trades:
             all_entry_prices.extend([float(p) for p in trade['entry_prices']])
         avg_price = np.mean(all_entry_prices)
-        take_profit_long = avg_price + opening_range * 0.1
-        take_profit_short = avg_price - opening_range * 0.1
-
+        take_profit_long = avg_price + opening_range * 2
+        take_profit_short = avg_price - opening_range * 2
+        trailing_trigger_long = avg_price + opening_range * 0.7
+        trailing_trigger_short = avg_price - opening_range * 0.7
         for i, trade in enumerate(trades):
             salida_idx = list(after_open_df.index).index(pd.to_datetime(trade['entry_time'])) + 1
             salida_df = after_open_df.iloc[salida_idx:]
             exit_found = False
             tag = None
-            # --- Exit loop
+
+            stop = trade['stop_loss']
+            trailing_activated = False
+
+            # --- LONG ---
             if trade['entry_type'] == 'Long':
-                target = take_profit_long
-                stop = trade['stop_loss']
                 for exit_idx, exit_row in salida_df.iterrows():
+                    # Trailing stop a break even+1 punto si se activa el trigger
+                    if not trailing_activated and exit_row['High'] >= trailing_trigger_long:
+                        stop = avg_price + 0  # Break even + 1 punto
+                        trailing_activated = True
+                    # Primero, comprobar STOP OUT (stop actual, que puede ser el original o el trailing stop)
                     if exit_row['Low'] <= stop:
                         trades[i]['exit_time'] = exit_idx
                         trades[i]['exit_price'] = stop
-                        tag = "stop_out"
+                        tag = "stop_out" if not trailing_activated else "trailing_stop"
                         exit_found = True
                         break
-                    if exit_row['High'] >= target:
+                    # Luego, comprobar TAKE PROFIT
+                    if exit_row['High'] >= take_profit_long:
                         trades[i]['exit_time'] = exit_idx
-                        trades[i]['exit_price'] = target
+                        trades[i]['exit_price'] = take_profit_long
                         tag = "target_profit"
                         exit_found = True
                         break
+            # --- SHORT ---
             else:
-                target = take_profit_short
-                stop = trade['stop_loss']
                 for exit_idx, exit_row in salida_df.iterrows():
+                    if not trailing_activated and exit_row['Low'] <= trailing_trigger_short:
+                        stop = avg_price - 0  # Break even - 1 punto (caso short)
+                        trailing_activated = True
                     if exit_row['High'] >= stop:
                         trades[i]['exit_time'] = exit_idx
                         trades[i]['exit_price'] = stop
-                        tag = "stop_out"
+                        tag = "stop_out" if not trailing_activated else "trailing_stop"
                         exit_found = True
                         break
-                    if exit_row['Low'] <= target:
+                    if exit_row['Low'] <= take_profit_short:
                         trades[i]['exit_time'] = exit_idx
-                        trades[i]['exit_price'] = target
+                        trades[i]['exit_price'] = take_profit_short
                         tag = "target_profit"
                         exit_found = True
                         break
-            # If not exit found, force exit on last candle (penultimate)
+            # Si no hay exit encontrado, salir en la penúltima vela
             if not exit_found:
                 exit_idx = salida_df.index[-2] if len(salida_df) > 1 else salida_df.index[-1]
                 trades[i]['exit_time'] = exit_idx
@@ -301,7 +337,7 @@ def order_management_zonas(
             df[col] = np.nan
     df = df[columns]
 
-    # ========== *** GUARDA EL CSV AQUÍ *** ==========
+    # ========== GUARDA EL CSV ==========
     if not df.empty:
         os.makedirs('outputs', exist_ok=True)
         tracking_file = 'outputs/tracking_record.csv'

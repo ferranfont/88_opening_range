@@ -225,4 +225,5 @@ def graficar_precio(
 
     # COMENTAR PARA NO SATURAR LA KERNEL DEL ORDENADOR
     import webbrowser
-    webbrowser.open('file://' + os.path.realpath(output_file))
+    #webbrowser.open('file://' + os.path.realpath(output_file))         # INDICAR QUE SE ABRA EL NAVEGADOR AUTOMÁTICAMENTE O COMENTAR  PARA NO SATURAR LA KERNEL
+    

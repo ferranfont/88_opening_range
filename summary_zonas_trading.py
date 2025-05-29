@@ -5,6 +5,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 import webbrowser
 
+df = pd.read_csv('outputs/tracking_record.csv', on_bad_lines='skip')
+df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce', utc=True)
+df = df.sort_values(by='entry_time').reset_index(drop=True)
+df['profit_usd'] = pd.to_numeric(df['profit_usd'], errors='coerce').fillna(0)
+df['cum_profit_usd'] = df['profit_usd'].cumsum()
+
+
 # === CONFIGURACIÓN Y LECTURA ===
 tracking_file = 'outputs/tracking_record.csv'
 df = pd.read_csv(tracking_file, on_bad_lines='skip')
@@ -170,10 +177,16 @@ webbrowser.open('file://' + os.path.realpath(table_path))
 webbrowser.open('file://' + os.path.realpath(sel_table_path))
 webbrowser.open('file://' + os.path.realpath(full_table_path))
 
-# ========== HISTOGRAMAS DE BENEFICIO POR ZONA ==========
+# ========== HISTOGRAMAS DE BENEFICIO POR ZONA (A, B, C) CON GRADIENTE Y BARRAS ESTRECHAS ==========
 
-zonas = ['Breakout', 'Breakdown', 'A', 'B', 'C']
-for zona in zonas:
+zonas = ['A', 'B', 'C']
+colores = [
+    'rgba(0,200,0,0.25)',   # A: verde muy transparente
+    'rgba(0,200,0,0.55)',   # B: verde medio transparente
+    'rgba(0,200,0,0.85)'    # C: verde más opaco
+]
+
+for zona, color in zip(zonas, colores):
     trades_zona = trades[trades['zona'] == zona]
     if not trades_zona.empty:
         fig_hist = px.histogram(
@@ -184,8 +197,11 @@ for zona in zonas:
             labels={'Profit_$': 'Beneficio ($)'},
             template='plotly_white',
             width=800,
-            height=500
+            height=500,
+            color_discrete_sequence=[color]
         )
+        fig_hist.update_traces(marker_line_color='green', marker_line_width=1)
+        fig_hist.update_layout(bargap=0.06)  # barras más pegadas/estrechas
         hist_path = os.path.join(charts_dir, f"Hist_Beneficio_Zona_{zona}.html")
         fig_hist.write_html(hist_path, auto_open=False)
         print(f"✅ Histograma zona {zona} guardado: {hist_path}")
